@@ -83,10 +83,15 @@ figure_singleton_name(VALUE klass)
         /* Make sure to get the super class so that we don't
            mistakenly grab a T_ICLASS which would lead to
            unknown method errors. */
-#ifdef RCLASS_SUPER
-        VALUE super = rb_class_real(RCLASS_SUPER(klass));
+#ifdef HAVE_RB_CLASS_SUPERCLASS
+        // 1.9.3
+        VALUE super = rb_class_superclass(klass);
 #else
+# ifdef RCLASS_SUPER
+        VALUE super = rb_class_real(RCLASS_SUPER(klass));
+# else
         VALUE super = rb_class_real(RCLASS(klass)->super);
+# endif
 #endif
         result = rb_str_new2("<Object::");
         rb_str_append(result, rb_inspect(super));
@@ -1078,10 +1083,8 @@ pop_frames(st_data_t key, st_data_t value, st_data_t now_arg)
 }
 
 static void
-prof_pop_threads()
+prof_pop_threads(prof_measure_t now)
 {
-    /* Get current measurement */
-    prof_measure_t now = get_measurement();
     st_foreach(threads_tbl, pop_frames, (st_data_t) &now);
 }
 
@@ -1160,7 +1163,7 @@ prof_event_hook(rb_event_flag_t event, NODE *node, VALUE self, ID mid, VALUE kla
     thread = rb_thread_current();
     thread_id = rb_obj_id(thread);
 
-   # if RUBY_VERSION >= 191
+   # if RUBY_VERSION >= 191 && THREADS_INHERIT_EVENT_FLAGS==0
      /* ensure that new threads are hooked [sigh] (bug in core) */
      prof_remove_hook();
      prof_install_hook();
@@ -1613,6 +1616,10 @@ prof_resume(VALUE self)
 static VALUE
 prof_stop(VALUE self)
 {
+    /* get 'now' before prof emove hook because it calls GC.disable_stats
+      which makes the call within prof_pop_threads of now return 0, which is wrong
+    */
+    prof_measure_t now = get_measurement();
     if (threads_tbl == NULL)
     {
         rb_raise(rb_eRuntimeError, "RubyProf.start was not yet called");
@@ -1626,10 +1633,10 @@ prof_stop(VALUE self)
         fclose(trace_file);
       trace_file = NULL;
     }
-
+    
     prof_remove_hook();
 
-    prof_pop_threads();
+    prof_pop_threads(now);
 
     /* Create the result */
     result = prof_result_new();

@@ -1,4 +1,3 @@
-require 'ruby-prof/abstract_printer'
 require 'erb'
 
 module RubyProf
@@ -42,6 +41,13 @@ module RubyProf
     #
     # options - Hash of print options.  See #setup_options
     #           for more information.
+    #
+    # unique options are:
+    #   :filename    - specify a file to use that contains the ERB
+    #                  template to use, instead of the built-in self.template
+    #
+    #   :template    - specify an ERB template to use, instead of the
+    #                  built-in self.template
     #
     def print(output = STDOUT, options = {})
       @output = output
@@ -119,7 +125,7 @@ module RubyProf
         if RUBY_PLATFORM =~ /darwin/
           "<a href=\"txmt://open?url=file://#{h srcfile}&line=#{linenum}\" title=\"#{h srcfile}:#{linenum}\">#{linenum}</a>"
         else
-          "<a href=\"file://#{h srcfile}?line=#{linenum}\" title=\"#{h srcfile}:#{linenum}\">#{linenum}</a>"
+          "<a href=\"file://#{h srcfile}##{linenum}\" title=\"#{h srcfile}:#{linenum}\">#{linenum}</a>"
         end
       end
     end
